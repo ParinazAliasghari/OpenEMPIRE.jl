@@ -382,17 +382,18 @@ function create_generator_constraints(
         gen_hydro_limit[n in N, g in generators(sets, n), sc in opscenarios(periods); is_reg_hydro(sets, g)],
         sum(genOp[n, g, t] for t in sc) <= max_hydro_gen(par, n, sc)
     )
+    
+    #------------- changed hydropower limit constraints to be per node and strategic period, instead of per generator and operational scenario  ------------------
+    
     @info " - generation limit constraints for hydropower for each node and strategic period"
     _report_progress(progress, "Creating node hydropower limit constraints")
     @constraint(
-        emp,
-        gen_hydro_node_limit[n in N, sp in SP; !isnothing(max_hydro_node(par, n))],
-        sum(
-            multiple_strat(sp, t) * probability(t) * genOp[n, g, t]
-            for g in generators(sets, n) if is_hydro(sets, g)
-            for t in sp
-        ) <= max_hydro_node(par, n)
+    emp,
+    gen_hydro_node_limit[n in N, sp in SP, sc in 1:_opscenario_count(sp); !isnothing(max_hydro_node(par, n))],
+    sum( multiple_strat(sp, t) * genOp[n, g, t] for g in generators(sets, n) if is_hydro(sets, g) for rp in repr_periods(sp) for (scenario_index, scenario) in enumerate(opscenarios(rp)) if scenario_index == sc for t in scenario; init = 0.0) <= max_hydro_node(par, n)
     )
+
+    #-------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     create_bioenergy_constraints(emp, sets, par, periods; progress)
 
