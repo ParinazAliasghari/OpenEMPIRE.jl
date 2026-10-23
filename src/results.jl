@@ -200,7 +200,7 @@ function _value_or_zero(container, args...)
     end
 end
 
-function _objective_value_or_nan(emp::JuMP.Model)
+function _objective_value_or_nan(emp::JuMP.AbstractModel)
     try
         return Float64(JuMP.objective_value(emp))
     catch
@@ -256,7 +256,7 @@ function _is_res_generator(sets, generator::AbstractString)
     return false
 end
 
-function _flow_balance_price(emp::JuMP.Model, node::AbstractString, sp, t, discounter::Discounter)
+function _flow_balance_price(emp::JuMP.AbstractModel, node::AbstractString, sp, t, discounter::Discounter)
     objects = JuMP.object_dictionary(emp)
     haskey(objects, :flow_balance) || return NaN
     strategic_weight = objective_weight(sp, discounter)
@@ -266,7 +266,7 @@ function _flow_balance_price(emp::JuMP.Model, node::AbstractString, sp, t, disco
     return _dual_or_nan(emp[:flow_balance], node, t) / scale
 end
 
-function _emission_price(emp::JuMP.Model, par::EmpireParams, sp, scenario_index::Integer, t, discounter::Discounter)
+function _emission_price(emp::JuMP.AbstractModel, par::EmpireParams, sp, scenario_index::Integer, t, discounter::Discounter)
     if co2_cap(par, sp) !== nothing && haskey(JuMP.object_dictionary(emp), :emission_cap)
         # The emission-cap constraint (model_definition.jl) is written in tons:
         #   sum(nodeEmission) <= 1e6 * co2_cap   (co2_cap is stored in Mtons).
@@ -303,7 +303,7 @@ The low-level files mirror the simple first-stage and operational variable
 dumps, while the `results_*.csv` files provide Python-style reporting tables
 with cleaned Julia naming conventions.
 """
-function write_solution_tables(result_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure)
+function write_solution_tables(result_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure)
     output_dir = joinpath(result_dir, "output")
     mkpath(output_dir)
 
@@ -1003,7 +1003,7 @@ end
 
 function write_natural_gas_csvs(
     output_dir::AbstractString,
-    emp::JuMP.Model,
+    emp::JuMP.AbstractModel,
     sets,
     par::EmpireParams,
     periods::TimeStructure,
@@ -1394,7 +1394,7 @@ end
 
 function write_natural_gas_dual_csvs(
     output_dir::AbstractString,
-    emp::JuMP.Model,
+    emp::JuMP.AbstractModel,
     sets,
     par::EmpireParams,
     periods::TimeStructure,
@@ -1627,7 +1627,7 @@ function write_scenario_artifacts(
     return archived_key
 end
 
-function write_investment_csvs(output_dir::AbstractString, emp::JuMP.Model, sets, periods::TimeStructure)
+function write_investment_csvs(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, periods::TimeStructure)
     strategic_periods = _strategic_indices(periods)
 
     gen_inv = emp[:genInvCap]
@@ -1702,7 +1702,7 @@ function write_investment_csvs(output_dir::AbstractString, emp::JuMP.Model, sets
     return output_dir
 end
 
-function write_operational_csvs(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure)
+function write_operational_csvs(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure)
     # Streamed rather than accumulated: these are the largest tables the port
     # writes (genOperational reaches 13,048,560 rows on full_model_int), and
     # building them as Vector{NamedTuple} before handing them to CSV.write held
@@ -1765,7 +1765,7 @@ function write_operational_csvs(output_dir::AbstractString, emp::JuMP.Model, set
     return output_dir
 end
 
-function write_report_csvs(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure)
+function write_report_csvs(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure)
     labels = _period_labels(periods)
 
     write_objective_csv(output_dir, emp)
@@ -1782,7 +1782,7 @@ function write_report_csvs(output_dir::AbstractString, emp::JuMP.Model, sets, pa
     return output_dir
 end
 
-function write_objective_csv(output_dir::AbstractString, emp::JuMP.Model)
+function write_objective_csv(output_dir::AbstractString, emp::JuMP.AbstractModel)
     return _write_csv_table(joinpath(output_dir, "results_objective.csv"), ["Objective function value:$(_objective_value_or_nan(emp))"]) do io
         nothing
     end
@@ -1803,7 +1803,7 @@ function write_cost_diagnostic_csvs(output_dir::AbstractString, sets, par::Empir
     return output_dir
 end
 
-function _weighted_generation(emp::JuMP.Model, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index = nothing)
+function _weighted_generation(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index = nothing)
     gen_op = emp[:genOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1817,7 +1817,7 @@ function _weighted_generation(emp::JuMP.Model, par::EmpireParams, node::Abstract
     return total
 end
 
-function _weighted_storage_discharge(emp::JuMP.Model, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index = nothing)
+function _weighted_storage_discharge(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index = nothing)
     stor_discharge = emp[:storDischarge]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1831,7 +1831,7 @@ function _weighted_storage_discharge(emp::JuMP.Model, par::EmpireParams, node::A
     return total
 end
 
-function _weighted_storage_losses(emp::JuMP.Model, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index = nothing)
+function _weighted_storage_losses(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index = nothing)
     stor_charge = emp[:storCharge]
     stor_discharge = emp[:storDischarge]
     total = 0.0
@@ -1849,7 +1849,7 @@ function _weighted_storage_losses(emp::JuMP.Model, par::EmpireParams, node::Abst
     return total
 end
 
-function _weighted_transmission_volume(emp::JuMP.Model, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index = nothing)
+function _weighted_transmission_volume(emp::JuMP.AbstractModel, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index = nothing)
     trans_op = emp[:transmissionOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1867,7 +1867,7 @@ function _weighted_transmission_volume(emp::JuMP.Model, par::EmpireParams, from:
     return total
 end
 
-function _weighted_transmission_losses(emp::JuMP.Model, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index = nothing)
+function _weighted_transmission_losses(emp::JuMP.AbstractModel, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index = nothing)
     trans_op = emp[:transmissionOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1885,7 +1885,7 @@ function _weighted_transmission_losses(emp::JuMP.Model, par::EmpireParams, from:
     return total
 end
 
-function _weighted_curtailment(emp::JuMP.Model, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index = nothing)
+function _weighted_curtailment(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index = nothing)
     gen_cap = emp[:genInstalledCap]
     gen_op = emp[:genOperational]
     installed = _value_or_zero(gen_cap, node, generator, sp)
@@ -1903,7 +1903,7 @@ function _weighted_curtailment(emp::JuMP.Model, par::EmpireParams, node::Abstrac
     return total
 end
 
-function _scenario_generation(emp::JuMP.Model, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index::Integer)
+function _scenario_generation(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index::Integer)
     gen_op = emp[:genOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1917,7 +1917,7 @@ function _scenario_generation(emp::JuMP.Model, par::EmpireParams, node::Abstract
     return total
 end
 
-function _scenario_storage_losses(emp::JuMP.Model, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index::Integer)
+function _scenario_storage_losses(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, storage::AbstractString, sp, scenario_index::Integer)
     stor_charge = emp[:storCharge]
     stor_discharge = emp[:storDischarge]
     total = 0.0
@@ -1935,7 +1935,7 @@ function _scenario_storage_losses(emp::JuMP.Model, par::EmpireParams, node::Abst
     return total
 end
 
-function _scenario_transmission_losses(emp::JuMP.Model, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index::Integer)
+function _scenario_transmission_losses(emp::JuMP.AbstractModel, par::EmpireParams, from::AbstractString, to::AbstractString, sp, scenario_index::Integer)
     trans_op = emp[:transmissionOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1952,7 +1952,7 @@ function _scenario_transmission_losses(emp::JuMP.Model, par::EmpireParams, from:
     return total
 end
 
-function _scenario_curtailment(emp::JuMP.Model, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index::Integer)
+function _scenario_curtailment(emp::JuMP.AbstractModel, par::EmpireParams, node::AbstractString, generator::AbstractString, sp, scenario_index::Integer)
     gen_cap = emp[:genInstalledCap]
     gen_op = emp[:genOperational]
     installed = _value_or_zero(gen_cap, node, generator, sp)
@@ -1970,7 +1970,7 @@ function _scenario_curtailment(emp::JuMP.Model, par::EmpireParams, node::Abstrac
     return total
 end
 
-function _annual_emissions(emp::JuMP.Model, sets, par::EmpireParams, sp, scenario_index::Integer)
+function _annual_emissions(emp::JuMP.AbstractModel, sets, par::EmpireParams, sp, scenario_index::Integer)
     gen_op = emp[:genOperational]
     total = 0.0
     for rp in repr_periods(sp)
@@ -1987,7 +1987,7 @@ function _annual_emissions(emp::JuMP.Model, sets, par::EmpireParams, sp, scenari
     return total
 end
 
-function _annual_generation(emp::JuMP.Model, sets, par::EmpireParams, sp, scenario_index::Integer)
+function _annual_generation(emp::JuMP.AbstractModel, sets, par::EmpireParams, sp, scenario_index::Integer)
     return sum(
         _scenario_generation(emp, par, n, g, sp, scenario_index)
         for (n, g) in node_generators(sets);
@@ -1995,7 +1995,7 @@ function _annual_generation(emp::JuMP.Model, sets, par::EmpireParams, sp, scenar
     )
 end
 
-function write_generator_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_generator_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     gen_inv = emp[:genInvCap]
     gen_cap = emp[:genInstalledCap]
     header = [
@@ -2029,7 +2029,7 @@ function write_generator_report_csv(output_dir::AbstractString, emp::JuMP.Model,
     end
 end
 
-function write_storage_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_storage_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     stor_pw_inv = emp[:storPWInvCap]
     stor_pw_cap = emp[:storPWInstalledCap]
     stor_en_inv = emp[:storENInvCap]
@@ -2070,7 +2070,7 @@ function write_storage_report_csv(output_dir::AbstractString, emp::JuMP.Model, s
     end
 end
 
-function write_transmission_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_transmission_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     trans_inv = emp[:transmissionInvCap]
     trans_cap = emp[:transmissionInstalledCap]
     header = [
@@ -2101,7 +2101,7 @@ function write_transmission_report_csv(output_dir::AbstractString, emp::JuMP.Mod
     end
 end
 
-function write_transmission_operational_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_transmission_operational_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     trans_op = emp[:transmissionOperational]
     header = ["FromNode", "ToNode", "Period", "Season", "Scenario", "Hour", "TransmissionReceived_MW", "Losses_MW"]
     return _write_csv_table(joinpath(output_dir, "results_output_transmission_operational.csv"), header) do io
@@ -2123,7 +2123,7 @@ function write_transmission_operational_report_csv(output_dir::AbstractString, e
     end
 end
 
-function write_operational_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_operational_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     gen_op = emp[:genOperational]
     stor_charge = emp[:storCharge]
     stor_discharge = emp[:storDischarge]
@@ -2211,7 +2211,7 @@ function write_operational_report_csv(output_dir::AbstractString, emp::JuMP.Mode
     end
 end
 
-function write_curtailment_report_csvs(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_curtailment_report_csvs(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     gen_cap = emp[:genInstalledCap]
     gen_op = emp[:genOperational]
     res_pairs = [(n, g) for (n, g) in node_generators(sets) if _is_res_generator(sets, g)]
@@ -2247,7 +2247,7 @@ function write_curtailment_report_csvs(output_dir::AbstractString, emp::JuMP.Mod
     return output_dir
 end
 
-function write_europe_plot_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_europe_plot_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     gen_cap = emp[:genInstalledCap]
     stor_pw_cap = emp[:storPWInstalledCap]
     stor_en_cap = emp[:storENInstalledCap]
@@ -2302,7 +2302,7 @@ function write_europe_plot_report_csv(output_dir::AbstractString, emp::JuMP.Mode
     end
 end
 
-function write_europe_summary_report_csv(output_dir::AbstractString, emp::JuMP.Model, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
+function write_europe_summary_report_csv(output_dir::AbstractString, emp::JuMP.AbstractModel, sets, par::EmpireParams, periods::TimeStructure, labels::Vector{String})
     gen_inv = emp[:genInvCap]
     gen_cap = emp[:genInstalledCap]
     stor_pw_inv = emp[:storPWInvCap]
